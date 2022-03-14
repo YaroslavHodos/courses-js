@@ -6,6 +6,7 @@ import TableHandler from './ui/table_handler';
 import { getRandomCourse } from './utils/randomCourse';
 import _ from 'lodash';
 import NavigatorButtons from './ui/navigators-buttons';
+import Spinner from './ui/navigators-buttons';
 const N_COURSES = 5;
 
 function creatCourses() {
@@ -37,60 +38,69 @@ const costStatisticsTable = new TableHandler(statisticsColumnDefinition, "course
 const formHandler = new FormHandler("courses-form","alert");
 const formGenerationHandler = new FormHandler("generation-courses-form","alert");
 const navButtons = new NavigatorButtons();
-formHandler.addHandler(course => {
-    const res = dataProcessor.addCourse(course);
+const spinener = new Spinner("spinner");
+formHandler.addHandler(async course => {
+    const res = await handlerWithSpinner(dataProcessor.addCourse, course);
         return res;    
 })
 formHandler.fillOptions("name-options", courseData.courses);
 formHandler.fillOptions("lecturer-options", courseData.lecturers);
-formGenerationHandler.addHandler(obj => {
-    const res = +_.values(obj)[0];
+formGenerationHandler.addHandler(async obj => {
+    const inputValue = +_.values(obj)[0];
     let message = 'The value must be greater than zero!';
-    for (let i = 0; i < res; i++) {
-        message =  dataProcessor.addCourse(getRandomCourse(courseData));
+    if (inputValue > 0) {
+        for (let i = 0; i < inputValue; i++) {
+        await handlerWithSpinner(dataProcessor.addCourse, getRandomCourse(courseData));
+        }
+        message = obj;
     }   
     return message;
 })
+async function handlerWithSpinner(fun, ...args) {
+    spinener.statr();
+    const res = await fun.bind(dataProcessor, ...args)();
+    spinener.stop();
+    return res;
+}
 window.hide = () => {
     formHandler.removeMessage();
     formHandler.hide();
+    tableHandler.hideTable();
     formGenerationHandler.hide();
 }
-window.sortCourses = (key) => {
-    tableHandler.showTable(dataProcessor.sortCourses(key));
+window.sortCourses = async (key) => {
+    tableHandler.showTable(await handlerWithSpinner(dataProcessor.sortCourses, key));
 }
 window.showForm = () => {
     navButtons.setActive(0);
     hide();
     formHandler.show();
-    tableHandler.hideTable();
 }
-window.showCourses = () => {
+window.showCourses = async () => {
     navButtons.setActive(1);
     hide();
-    tableHandler.showTable(dataProcessor.getAllCourses());
+    tableHandler.showTable(await handlerWithSpinner(dataProcessor.getAllCourses));
 }
-window.showHoursStatistics = () => {
+window.showHoursStatistics = async () => {
     navButtons.setActive(2);
     hide();
-    hoursStatisticsTable.showTable(dataProcessor.getStatistics('hours', courseData.hoursLengthInterval));
+    hoursStatisticsTable.showTable(await handlerWithSpinner(dataProcessor.getStatistics, 'hours', courseData.hoursLengthInterval));
 
 }
-window.showCostStatistics = () => {
+window.showCostStatistics = async () => {
     navButtons.setActive(3);
     hide();
-    costStatisticsTable.showTable(dataProcessor.getStatistics('cost', courseData.costLengthInterval));
+    costStatisticsTable.showTable(await handlerWithSpinner(dataProcessor.getStatistics, 'cost', courseData.costLengthInterval));
     
 }
 window.showFormGeneration = () => {
     navButtons.setActive(4);
     hide();
     formGenerationHandler.show();
-    tableHandler.hideTable();
 }
-window.removeCourse = (id) => {
+window.removeCourse = async (id) => {
     if(window.confirm(`you are going to remove course id: ${id}`)) {
-        dataProcessor.removeCourse(+id);
-        tableHandler.showTable(dataProcessor.getAllCourses()); 
+        await dataProcessor.removeCourse(+id);
+        tableHandler.showTable(await handlerWithSpinner(dataProcessor.getAllCourses)); 
     }
 }
